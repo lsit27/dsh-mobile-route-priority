@@ -12,7 +12,7 @@ import os from 'node:os'
 import { normalizeConfig, CHANNELS, MODES } from './lib/config.js'
 import { probeHttp, createChannelState, foldProbe } from './lib/probe.js'
 import { decide, isHealthy } from './lib/strategy.js'
-import { fetchRelayStatus, patchRelayConfig, setTailcatEnabled, restartSidecar, readDevices, phoneRecentlyOnLan } from './lib/bridge.js'
+import { fetchRelayStatus, patchRelayConfig, setTailcatEnabled, restartSidecar, readDevices, phoneRecentlyOnLan, readRelayConfig } from './lib/bridge.js'
 import { PANEL_HTML } from './lib/panel.js'
 
 export const name = 'dsh-mobile-route-priority'
@@ -91,6 +91,9 @@ export function apply(ctx, rawConfig = {}) {
     lastProbeAt: 0,
     lastError: '',
     lastHealAt: 0,
+    // 入口稳定性：一次自愈之后的一段时间内都算「不稳」，此时不关隧道。
+    // 局域网刚崩过就断掉唯一的兜底，等于把手机扔进黑洞。
+    entry: { healCount: 0, lastHealAt: 0, unstableUntil: 0 },
     applied: {},
     startedAt: Date.now(),
   }
@@ -140,6 +143,7 @@ export function apply(ctx, rawConfig = {}) {
 
     state.lastProbeAt = now
 
+    const relayConfig = readRelayConfig()
     const lanSeenByPhone = phoneRecentlyOnLan(state.devices)
     state.decision = decide({
       config: state.config,
@@ -151,6 +155,8 @@ export function apply(ctx, rawConfig = {}) {
         lanPort,
         deviceLastChannel: state.devices[0]?.lastChannel || '',
         lanSeenByPhone,
+        manualTcpUrl: relayConfig.manualTcpUrl,
+        entryUnstable: now < state.entry.unstableUntil,
       },
       now,
     })
@@ -167,13 +173,22 @@ export function apply(ctx, rawConfig = {}) {
     state.lastHealAt = Date.now()
     try {
       const result = await restartSidecar(port())
+      markEntryUnstable(`局域网入口重启：${result?.after?.lan?.state || 'unknown'}`)
       log('warn', 'sidecar 已尝试重启：%s', result?.after?.state || 'unknown')
-      pushHistory({ kind: 'heal', reason: `sidecar 重启：${result?.after?.lan?.state || 'unknown'}` })
     } catch (error) {
+      markEntryUnstable(`局域网入口重启失败：${error?.message || error}`)
       state.lastError = String(error?.message || error)
       log('warn', 'sidecar 重启失败：%s', state.lastError)
-      pushHistory({ kind: 'heal', reason: `sidecar 重启失败：${state.lastError}` })
     }
+  }
+
+  /** 一次自愈之后 10 分钟内都算「入口不稳」：这段时间不关隧道，先让它自己缓过来。 */
+  function markEntryUnstable(reason) {
+    const now = Date.now()
+    state.entry.healCount += 1
+    state.entry.lastHealAt = now
+    state.entry.unstableUntil = now + 10 * 60 * 1000
+    pushHistory({ kind: 'heal', reason })
   }
 
   /** 把决策翻译成实际动作。只下发与已应用值不同的项，减少对插件的无谓写入。 */
@@ -189,6 +204,10 @@ export function apply(ctx, rawConfig = {}) {
       if (action.kind === 'manualLanUrl' && state.applied.manualLanUrl !== action.value) {
         patch.manualLanUrl = action.value
         state.applied.manualLanUrl = action.value
+      }
+      if (action.kind === 'manualTcpUrl' && state.applied.manualTcpUrl !== action.value) {
+        patch.manualTcpUrl = action.value
+        state.applied.manualTcpUrl = action.value
       }
       if (action.kind === 'tailcat' && state.applied.tailcat !== action.enabled) {
         try {
@@ -238,6 +257,12 @@ export function apply(ctx, rawConfig = {}) {
       applied: state.applied,
       devices: state.devices,
       history: state.history,
+      entry: {
+        healCount: state.entry.healCount,
+        lastHealAt: state.entry.lastHealAt,
+        unstable: Date.now() < state.entry.unstableUntil,
+        unstableUntil: state.entry.unstableUntil,
+      },
       relay: state.relay ? {
         lan: state.relay.lan,
         tunnel: state.relay.tunnel,

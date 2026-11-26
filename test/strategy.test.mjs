@@ -145,6 +145,37 @@ test('刚到新通道的驻留时间内不来回跳', () => {
   assert.equal(result.target, 'tailcat')
 })
 
+test('入口近期崩过时不关隧道（先保住兜底）', () => {
+  const actions = buildActions({
+    config: baseConfig({ allowDisableTailcat: true }),
+    target: 'lan',
+    measurements: { lan: ch(10) },
+    context: { ...ctxBase, entryUnstable: true },
+  })
+  assert.equal(actions.find(a => a.kind === 'tailcat').enabled, true)
+  assert.ok(actions.some(a => a.kind === 'note' && /入口近期崩过/.test(a.value)))
+})
+
+test('局域网优先时收掉指向 Tailscale 的手填 TCP 直连', () => {
+  const actions = buildActions({
+    config: baseConfig(),
+    target: 'lan',
+    measurements: { lan: ch(10) },
+    context: { ...ctxBase, manualTcpUrl: '100.64.26.27:18787' },
+  })
+  assert.ok(actions.some(a => a.kind === 'manualTcpUrl' && a.value === ''))
+})
+
+test('非 Tailscale 的手填 TCP 直连不动', () => {
+  const actions = buildActions({
+    config: baseConfig(),
+    target: 'lan',
+    measurements: { lan: ch(10) },
+    context: { ...ctxBase, manualTcpUrl: 'relay.example.com:7000' },
+  })
+  assert.equal(actions.some(a => a.kind === 'manualTcpUrl'), false)
+})
+
 test('RTT 未知但连得上的隧道算健康', () => {
   assert.equal(isHealthy('tailcat', { ok: true, rttMs: null }, baseConfig().thresholds), true)
 })
