@@ -1,0 +1,11 @@
+# Bundle patch: mount the route-priority controller into the profile.
+#
+# The row id and the package name are distinct on purpose: this profile already
+# hosts `dsh-mobile-plugin`, so a second row must not shadow it.
+- insert:
+    - id: dsh-mobile-route-priority
+      name: 'dsh-mobile-route-priority'
+      config:
+        mode: lan-first
+        autoHealSidecar: true
+        allowDisableTailcat: true

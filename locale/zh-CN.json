@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "title": "手机连接选路",
+    "description": "按实测延迟决定手机该走局域网 Wi-Fi、Tailscale 还是内置直连隧道，支持局域网优先、自动择优，以及带延迟阈值降级的手动顺序。",
+    "detail": "docs/DETAIL.md"
+  },
+  "panel": {
+    "title": "手机连接选路",
+    "save": "保存",
+    "probe": "立即探测",
+    "heal": "重启局域网入口"
+  }
+}

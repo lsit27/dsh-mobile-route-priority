@@ -1,0 +1,13 @@
+{
+  "meta": {
+    "title": "Mobile route priority",
+    "description": "Chooses which link the phone should take - Wi-Fi LAN, Tailscale or the built-in tunnel - from measured latency, with LAN-first, automatic quality picking and a manual order that fails over past a latency threshold.",
+    "detail": "docs/DETAIL.md"
+  },
+  "panel": {
+    "title": "Mobile route priority",
+    "save": "Save",
+    "probe": "Probe now",
+    "heal": "Restart LAN entry"
+  }
+}
