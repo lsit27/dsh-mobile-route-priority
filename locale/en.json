@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Mobile route priority",
-    "description": "Chooses which link the phone should take - Wi-Fi LAN, Tailscale or the built-in tunnel - from measured latency, with LAN-first, automatic quality picking and a manual order that fails over past a latency threshold.",
+    "description": "Picks the phone's link by measured latency and stability across LAN interfaces, LAN Tailscale NIC (separate from the DSH tunnel), plugin-configured direct links, the built-in tunnel and the relay. Offers LAN-first, quality and stability auto selection, and manual priority with single/multi select and drag-to-reorder.",
     "detail": "docs/DETAIL.md"
   },
   "panel": {

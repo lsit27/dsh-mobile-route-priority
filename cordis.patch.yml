@@ -9,3 +9,26 @@
         mode: lan-first
         autoHealSidecar: true
         allowDisableTailcat: true
+        # 自愈看门狗：窗口内重启超上限就熔断，避免误判反复重启拖断移动连接。
+        healWatchdog:
+          windowMs: 600000      # 10 分钟窗口
+          maxRestarts: 3        # 窗口内最多重启 3 次
+          cooldownMs: 900000    # 熔断后暂停 15 分钟
+        # 自动重启守护：彻底解决反复"请重启 DSH"（自动更新热加载未重启）。
+        restartGuard:
+          enabled: true         # 关闭 dsh-mobile-plugin 自动更新 + 版本不一致时自动重启
+          checkIntervalMs: 60000
+          startupGraceMs: 90000 # 启动后 90 秒宽限期
+          windowMs: 86400000    # 24 小时熔断窗口
+          maxRestarts: 2        # 24h 内最多自动重启 2 次
+        # 手动模式链路优先级（单/多选 + 拖拽排序）；空表示跟随组级默认。
+        # 链路 id 形如 lan:192.168.1.2 / ts:100.64.19.3 / manual:lanUrl / tailcat / relay。
+        selection: []
+        # 自动择优：质量(RTT) + 稳定性(可用率/抖动) 综合评分。
+        autoPolicy:
+          qualityWeight: 0.7
+          stabilityWeight: 0.3
+          switchRatio: 0.15
+          maxFlapPer10m: 3
+          minDwellMs: 0
+        # 阈值组：lan-ts 是 100.64 网卡的局域网线路（与 DSH tailcat 隧道分开）

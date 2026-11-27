@@ -1,7 +1,7 @@
 {
   "name": "dsh-mobile-route-priority",
-  "version": "0.1.0",
-  "description": "Route priority controller for dsh-mobile-plugin: LAN-first, automatic quality picking, and a manual order with latency-threshold failover between Wi-Fi, Tailscale and the built-in tunnel.",
+  "version": "0.3.0",
+  "description": "Route priority controller for dsh-mobile-plugin: LAN-first, quality/stability auto picking, drag-to-reorder manual links, a self-healing watchdog, and an auto-restart guard that stops the repeated \"restart DSH\" loop caused by hot-loaded mobile-plugin updates.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -9,12 +9,15 @@
   },
   "exports": {
     ".": "./index.js",
+    "./client": "./client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
     "index.js",
+    "client.js",
+    "restart-helper.mjs",
     "cordis.patch.yml",
     "lib",
     "locale/*.json",
@@ -39,6 +42,14 @@
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
     }
   },
   "scripts": {

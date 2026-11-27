@@ -117,7 +117,7 @@ test('选 Tailscale 时把它写成手填直连地址', () => {
 test('配置归一：坏值被挡成默认值，顺序缺项补全', () => {
   const config = normalizeConfig({ mode: 'nope', order: ['lan', 'lan', 'bogus'], thresholds: { lan: { degradeMs: -5 } }, intervalMs: 'abc' })
   assert.equal(config.mode, 'lan-first')
-  assert.deepEqual(config.order, ['lan', 'tailscale', 'tailcat', 'relay'])
+  assert.deepEqual(config.order, ['lan', 'lan-ts', 'tailscale', 'tailcat', 'relay'])
   assert.equal(config.thresholds.lan.degradeMs, 1)
   assert.equal(config.intervalMs, 4000)
 })
