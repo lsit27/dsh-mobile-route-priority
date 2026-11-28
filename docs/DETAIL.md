@@ -130,6 +130,42 @@ DSH，但它的**外壳（host 侧）/隧道/镜像初始化只在进程启动�
 
 ## 打开面板
 
-- 直接访问 `http://127.0.0.1:3080/dsh-mobile-route/panel`（端口按实际 DSH Web 端口）。
-- fnOS 上从侧边栏左下角 **「飞牛 OS」菜单**里选「手机连接选路」，在新标签页打开面板。
-- 插件同时在侧边栏插件行注册了同一入口（是否直接显示取决于宿主的插件行 pin 设置）。
+- **主入口**：侧边栏左下角**插件列表**（DSH 的 `sidebar.panellist` list slot，与「飞牛 OS」等插件行同一排）。
+  插件以 id `mobile-route`、key 同为 `mobile-route` 注册一条 `sidebar.panellist` + 对应的 `main` 面板；
+  入口标签为「手机连接选路」。点击该行会在主区域打开面板。
+- **兼容入口（fnOS）**：「飞牛 OS」菜单里也有「手机连接选路」项，点击在新标签页打开同一面板。
+  这是通过克隆菜单最后一项实现的**最小侵入式兼容**，不替换、不重写 dsh-fnos 的菜单组件。
+- **直连**：`http://127.0.0.1:3080/dsh-mobile-route/panel`（端口按实际 DSH Web 端口）。
+- **fnOS 网关**：`http://<NAS>:5666/app/fn-deepseek-harness/dsh-mobile-route/panel`。
+
+两个入口指向同一面板，不存在配置分裂；菜单注入在找不到 `.dsh-fnos-footer-menu` 时直接跳过（例如 Windows），
+此时 `sidebar.panellist` 入口仍然可用。
+
+## 平台兼容性
+
+- **fnOS**：本插件的主要运行环境。网关拒绝 `/api/*`，故主路由用 `/dsh-mobile-route/*`；面板 API 基址
+  从 `location.pathname` 推导，直连与网关代理都正确。
+- **Windows**：
+  - 面板、链路发现、决策、配置读写均为纯 Node/HTML，跨平台（路径用 `path.join`，plan 时间戳不含
+    Windows 非法字符）。
+  - 自动重启守护的 `restart-helper.mjs` 使用 `process.kill(pid, 'SIGTERM'/'SIGKILL')`：在 Windows 上
+    Node 以 `TerminateProcess` 实现，**无优雅关闭钩子，等价于强杀**；`mode: 0600` 在 Windows 上语义也不同
+    （Node 忽略该 mode）。这两点**无法从本仓库代码确证 Windows 真机行为，需 Windows 真机验证**。
+  - `client.js` 的 fnOS 菜单注入在 Windows 上因找不到 `.dsh-fnos-footer-menu` 而优雅跳过；侧边栏
+    `sidebar.panellist` 入口为 DSH 平台 slot，跨平台可用（具体显示取决于宿主的插件行 pin 设置）。
+
+## 手填链路怎么填、看到什么算通过
+
+在 **dsh-mobile-plugin 的配置面板**（`http://127.0.0.1:3080/api/relay/panel`）里填手填地址，本插件会读取
+`relay.json` 的四个字段并生成对应的 `manual:*` 链路。填什么与预期结果：
+
+| 字段 | 示例值（现场采集） | 本插件面板应显示的链路 | 选中后回写字段 |
+| --- | --- | --- | --- |
+| `manualLanUrl` | `http://10.19.9.154:18787` | `手填 · manualLanUrl`（地址 10.19.9.154） | `manualLanUrl` |
+| `manualIpv4Url` | `http://10.19.9.3:18787` | `手填 · manualIpv4Url` | `manualIpv4Url` |
+| `manualIpv6Url` | `http://[240e:3bb:2cc0:bae0:f290:24fc:50cc:a56]:18787` | `手填 · manualIpv6Url` | `manualIpv6Url` |
+| `manualTcpUrl` | `10.19.9.3:18787`（裸 host:port 补 `http://`） | `手填 · manualTcpUrl` | `manualTcpUrl` |
+
+**通过标准**：填完后打开本插件面板，「可用链路」区每条手填地址各出现一张卡片；在手动模式里选中某条
+`manual:*`，本插件只回写它自己占用的字段（其它手填字段被清空，避免多条同时生效打架）。注意
+`lan-ts`（Tailscale 网卡线路）与 `manual:lanUrl` 共用 `manualLanUrl` 字段，两者不能同时生效——面板顶部已提示。
