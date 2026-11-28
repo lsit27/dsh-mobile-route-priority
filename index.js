@@ -288,18 +288,19 @@ export function apply(ctx, rawConfig = {}) {
     try {
       fs.mkdirSync(dir, { recursive: true })
       planPath = path.join(dir, `restart-plan-${stamp}.json`)
+      // 只继承重启必需的进程变量；完整 process.env 含 TRIM_API_TOKEN 等凭据，
+      // 绝不能落盘到 666 的 JSON 里。helper 用 process.env 兜底即可拿到同样的环境。
       const plan = {
         pid: process.pid,
         execPath: process.execPath,
         argv: process.argv.slice(1),
         cwd: process.cwd(),
-        env: { ...process.env },
         port: portNum,
         reason,
         logPath: path.join(dir, 'restart.log'),
         requestedAt: new Date().toISOString(),
       }
-      fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf8')
+      fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), { encoding: 'utf8', mode: 0o600 })
     } catch (error) {
       state.restartGuard.lastResult = `写重启计划失败：${error?.message || error}`
       log('warn', '自动重启计划写入失败：%s', state.restartGuard.lastResult)

@@ -8,7 +8,7 @@
  * 日志写到 plan.logPath，便于事后排查。
  */
 import { spawn } from 'node:child_process'
-import { appendFileSync, openSync, readFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, openSync, closeSync } from 'node:fs'
 import { connect } from 'node:net'
 
 const planPath = process.argv[2]
@@ -19,10 +19,28 @@ if (planPath === undefined) {
 
 const rawPlan = readFileSync(planPath, 'utf8').replace(/^\uFEFF/, '')
 const plan = JSON.parse(rawPlan)
+
+// 纵深防御：plan 文件由本插件写入，但仍校验字段类型，避免被篡改后 spawn 任意命令/杀错进程。
+function validPlan(p) {
+  if (!p || typeof p !== 'object') return false
+  if (!Number.isInteger(p.pid) || p.pid <= 0) return false
+  if (typeof p.execPath !== 'string' || !p.execPath) return false
+  if (!Array.isArray(p.argv) || !p.argv.every(a => typeof a === 'string')) return false
+  if (typeof p.cwd !== 'string' || !p.cwd) return false
+  if (typeof p.logPath !== 'string' || !p.logPath) return false
+  if (!Number.isInteger(p.port) || p.port < 1 || p.port > 65535) return false
+  return true
+}
+if (!validPlan(plan)) {
+  console.error('invalid restart plan')
+  process.exit(2)
+}
 const logPath = plan.logPath
 
 function log(message) {
   try {
+    // 首次写入用 600 创建，避免日志被同机其它用户读取。
+    try { const fd = openSync(logPath, 'a', 0o600); closeSync(fd) } catch { /* ignore */ }
     appendFileSync(logPath, `[${new Date().toISOString()}] ${message}\n`, 'utf8')
   } catch {
     /* 日志失败不影响主流程 */
@@ -97,8 +115,9 @@ async function main() {
     log(`port ${plan.port} release wait done (free=${freed})`)
   }
 
-  // 3) 拉起新进程，失败重试
-  const out = openSync(logPath, 'a')
+  // 3) 拉起新进程，失败重试。
+  // 不把子进程 stdout/stderr 重定向进 restart.log：DSH 启动 banner 会打印
+  // `?token=...` 登录令牌，那会把凭据写进日志文件。DSH 自身日志由 DSH 管理。
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     if (plan.port > 0 && (await listening(plan.port))) {
       log('port already serving; assume another dsh instance took over')
@@ -109,9 +128,9 @@ async function main() {
     try {
       child = spawn(plan.execPath, plan.argv, {
         cwd: plan.cwd,
-        env: plan.env || process.env,
+        env: process.env,
         detached: true,
-        stdio: ['ignore', out, out],
+        stdio: 'ignore',
         windowsHide: true,
       })
       child.unref()

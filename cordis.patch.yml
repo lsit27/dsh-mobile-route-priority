@@ -22,7 +22,7 @@
           windowMs: 86400000    # 24 小时熔断窗口
           maxRestarts: 2        # 24h 内最多自动重启 2 次
         # 手动模式链路优先级（单/多选 + 拖拽排序）；空表示跟随组级默认。
-        # 链路 id 形如 lan:192.168.1.2 / ts:100.64.19.3 / manual:lanUrl / tailcat / relay。
+        # 链路 id 形如 lan:192.168.1.2 / lants:100.64.19.3 / manual:lanUrl / tailcat / relay。
         selection: []
         # 自动择优：质量(RTT) + 稳定性(可用率/抖动) 综合评分。
         autoPolicy:
